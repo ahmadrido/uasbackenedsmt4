@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Shared with me — SecureDrop{% endblock %}
+
+{% block content %}
+<h2 class="font-semibold text-white mb-4">Dibagikan untuk Saya</h2>
+<p class="text-sm text-gray-500 mb-6">File privat yang dikirim langsung oleh user lain kepada Anda.</p>
+
+<div id="shared-list" class="space-y-3">
+  <div class="skeleton h-16 rounded-xl"></div>
+  <div class="skeleton h-16 rounded-xl"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function sharedRow(s) {
+    const f = s.file;
+    return `
+      <div class="bg-surface border border-border rounded-xl p-4 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-white truncate">${f.title}</p>
+          <p class="text-xs text-gray-500 truncate">
+            dari @${s.shared_by?.username || "-"} · ${formatDate(s.shared_at)}
+          </p>
+        </div>
+        <a href="/api/files/${f.id}/download" class="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition">
+          Unduh
+        </a>
+      </div>`;
+  }
+
+  async function loadSharedFiles() {
+    const container = document.getElementById("shared-list");
+    try {
+      const data = await apiFetch("/files/shared-with-me");
+      container.innerHTML = data.shared_files.length
+        ? data.shared_files.map(sharedRow).join("")
+        : `<p class="text-sm text-gray-600">Belum ada file yang dibagikan ke Anda.</p>`;
+    } catch (err) {
+      container.innerHTML = `<p class="text-sm text-red-400">${err.message}</p>`;
+    }
+  }
+
+  (async () => {
+    const user = await requireAuth();
+    if (!user) return;
+    loadSharedFiles();
+  })();
+</script>
+{% endblock %}

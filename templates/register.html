@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Register — SecureDrop{% endblock %}
+
+{% block content %}
+<div class="max-w-sm mx-auto mt-10">
+  <div class="bg-surface border border-border rounded-2xl p-8 shadow-xl">
+    <h1 class="text-xl font-semibold text-white mb-1">Buat Akun</h1>
+    <p class="text-sm text-gray-500 mb-6">Gunakan email kampus jika tersedia.</p>
+
+    <form id="register-form" class="space-y-4">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Nama Lengkap</label>
+        <input type="text" id="full_name"
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Username</label>
+        <input type="text" id="username" required minlength="3"
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Email</label>
+        <input type="email" id="email" required
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Password (min. 8 karakter)</label>
+        <input type="password" id="password" required minlength="8"
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+      </div>
+      <button type="submit"
+        class="w-full bg-accent hover:bg-blue-600 transition text-white text-sm font-medium py-2.5 rounded-lg">
+        Daftar
+      </button>
+      <div id="alert-box" class="hidden"></div>
+    </form>
+
+    <p class="text-sm text-gray-500 mt-6 text-center">
+      Sudah punya akun? <a href="/login" class="text-accent hover:underline">Login</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById("register-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+      full_name: document.getElementById("full_name").value.trim(),
+      username: document.getElementById("username").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("password").value,
+    };
+
+    try {
+      await apiFetch("/auth/register", { method: "POST", body: JSON.stringify(payload) });
+      showAlert("alert-box", "Registrasi berhasil! Mengalihkan ke login...", false);
+      setTimeout(() => (window.location.href = "/login"), 1200);
+    } catch (err) {
+      showAlert("alert-box", err.message);
+    }
+  });
+</script>
+{% endblock %}

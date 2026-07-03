@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Public Explorer — SecureDrop{% endblock %}
+
+{% block content %}
+<h2 class="font-semibold text-white mb-4">Public Explorer</h2>
+<p class="text-sm text-gray-500 mb-6">File yang dibagikan secara publik oleh seluruh user terdaftar.</p>
+
+<div id="public-list" class="grid sm:grid-cols-2 gap-4">
+  <div class="skeleton h-24 rounded-xl"></div>
+  <div class="skeleton h-24 rounded-xl"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function publicCard(f) {
+    return `
+      <div class="bg-surface border border-border rounded-xl p-4">
+        <p class="text-sm font-medium text-white truncate">${f.title}</p>
+        <p class="text-xs text-gray-500 mt-1 line-clamp-2">${f.description || "Tanpa deskripsi"}</p>
+        <div class="flex items-center justify-between mt-3">
+          <span class="text-[11px] text-gray-600">oleh @${f.owner?.username || "-"} · ${formatDate(f.created_at)}</span>
+          <a href="/api/files/${f.id}/download" class="text-xs px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition">Unduh</a>
+        </div>
+      </div>`;
+  }
+
+  async function loadPublicFiles() {
+    const container = document.getElementById("public-list");
+    try {
+      const data = await apiFetch("/files/public");
+      container.innerHTML = data.files.length
+        ? data.files.map(publicCard).join("")
+        : `<p class="text-sm text-gray-600 col-span-2">Belum ada file publik.</p>`;
+    } catch (err) {
+      container.innerHTML = `<p class="text-sm text-red-400 col-span-2">${err.message}</p>`;
+    }
+  }
+
+  (async () => {
+    const user = await requireAuth();
+    if (!user) return;
+    loadPublicFiles();
+  })();
+</script>
+{% endblock %}

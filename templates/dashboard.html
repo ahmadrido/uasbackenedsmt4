@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — SecureDrop{% endblock %}
+
+{% block content %}
+<div class="grid lg:grid-cols-5 gap-6">
+
+  <!-- Upload Panel -->
+  <div class="lg:col-span-2">
+    <div class="bg-surface border border-border rounded-2xl p-6 sticky top-20">
+      <h2 class="font-semibold text-white mb-4">Upload File</h2>
+      <form id="upload-form" class="space-y-4">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">File</label>
+          <input type="file" id="file-input" required
+            class="w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-accent/20 file:text-accent file:text-xs" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Judul</label>
+          <input type="text" id="title" required
+            class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1">Deskripsi</label>
+          <textarea id="description" rows="2"
+            class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"></textarea>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="is_public" class="rounded bg-base border-border" />
+          <label for="is_public" class="text-sm text-gray-400">Jadikan Publik (semua user bisa lihat)</label>
+        </div>
+
+        <!-- Share to specific users: searchable checkbox list -->
+        <div id="share-section" class="hidden">
+          <label class="block text-xs text-gray-400 mb-1">Bagikan ke user tertentu</label>
+
+          <input type="text" id="user-search" placeholder="Cari username atau nama..."
+            class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-accent" />
+
+          <div id="user-checklist"
+            class="border border-border rounded-lg max-h-44 overflow-y-auto divide-y divide-border">
+            <!-- diisi via JS -->
+          </div>
+
+          <div class="flex items-center justify-between mt-2">
+            <p id="selected-count" class="text-[11px] text-gray-600">0 user dipilih</p>
+            <button type="button" id="clear-selection" class="text-[11px] text-accent hover:underline">Bersihkan pilihan</button>
+          </div>
+        </div>
+
+        <button type="submit"
+          class="w-full bg-accent hover:bg-blue-600 transition text-white text-sm font-medium py-2.5 rounded-lg">
+          Upload
+        </button>
+        <div id="upload-alert" class="hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- My Files List -->
+  <div class="lg:col-span-3">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-white">File Saya</h2>
+      <span id="file-count" class="text-xs text-gray-500"></span>
+    </div>
+    <div id="my-files-list" class="space-y-3">
+      <div class="skeleton h-16 rounded-xl"></div>
+      <div class="skeleton h-16 rounded-xl"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let allUsers = [];
+  let selectedUserIds = new Set();
+
+  async function loadUsers() {
+    try {
+      const data = await apiFetch("/files/users");
+      allUsers = data.users;
+      renderUserChecklist(allUsers);
+    } catch (err) {
+      console.error(err);
+      document.getElementById("user-checklist").innerHTML =
+        `<p class="text-xs text-red-400 p-3">Gagal memuat daftar user.</p>`;
+    }
+  }
+
+  function renderUserChecklist(users) {
+    const container = document.getElementById("user-checklist");
+
+    if (!users.length) {
+      container.innerHTML = `<p class="text-xs text-gray-600 p-3">Tidak ada user ditemukan.</p>`;
+      return;
+    }
+
+    container.innerHTML = users.map((u) => `
+      <label class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/5 cursor-pointer transition">
+        <input type="checkbox" data-user-id="${u.id}" class="user-checkbox rounded bg-base border-border"
+          ${selectedUserIds.has(u.id) ? "checked" : ""} />
+        <span class="text-gray-300">${u.username}</span>
+        <span class="text-gray-600 text-xs">${u.full_name || ""}</span>
+      </label>
+    `).join("");
+
+    container.querySelectorAll(".user-checkbox").forEach((cb) => {
+      cb.addEventListener("change", (e) => {
+        const id = e.target.dataset.userId;
+        if (e.target.checked) selectedUserIds.add(id);
+        else selectedUserIds.delete(id);
+        updateSelectedCount();
+      });
+    });
+  }
+
+  function updateSelectedCount() {
+    document.getElementById("selected-count").textContent = `${selectedUserIds.size} user dipilih`;
+  }
+
+  function filterUsers(query) {
+    const q = query.trim().toLowerCase();
+    return allUsers.filter((u) =>
+      u.username.toLowerCase().includes(q) ||
+      (u.full_name || "").toLowerCase().includes(q)
+    );
+  }
+
+  document.getElementById("user-search").addEventListener("input", (e) => {
+    renderUserChecklist(filterUsers(e.target.value));
+  });
+
+  document.getElementById("clear-selection").addEventListener("click", () => {
+    selectedUserIds.clear();
+    updateSelectedCount();
+    renderUserChecklist(filterUsers(document.getElementById("user-search").value));
+  });
+
+  document.getElementById("is_public").addEventListener("change", (e) => {
+    document.getElementById("share-section").classList.toggle("hidden", e.target.checked);
+  });
+
+  function fileRow(f) {
+    return `
+      <div class="bg-surface border border-border rounded-xl p-4 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <p class="text-sm font-medium text-white truncate">${f.title}</p>
+            <span class="text-[10px] px-2 py-0.5 rounded-full ${f.is_public ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}">
+              ${f.is_public ? "Public" : "Private"}
+            </span>
+          </div>
+          <p class="text-xs text-gray-500 truncate">${f.original_filename} · ${formatBytes(f.file_size)} · ${formatDate(f.created_at)}</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a href="/api/files/${f.id}/download" class="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition">Download</a>
+          <button data-id="${f.id}" class="delete-btn text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition">Hapus</button>
+        </div>
+      </div>`;
+  }
+
+  async function loadMyFiles() {
+    const container = document.getElementById("my-files-list");
+    try {
+      const data = await apiFetch("/files/my-files");
+      document.getElementById("file-count").textContent = `${data.files.length} file`;
+      container.innerHTML = data.files.length
+        ? data.files.map(fileRow).join("")
+        : `<p class="text-sm text-gray-600">Belum ada file yang diunggah.</p>`;
+
+      container.querySelectorAll(".delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Hapus file ini?")) return;
+          try {
+            await apiFetch(`/files/${btn.dataset.id}`, { method: "DELETE" });
+            loadMyFiles();
+          } catch (err) {
+            alert(err.message);
+          }
+        });
+      });
+    } catch (err) {
+      container.innerHTML = `<p class="text-sm text-red-400">${err.message}</p>`;
+    }
+  }
+
+  document.getElementById("upload-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById("file-input");
+    if (!fileInput.files.length) return;
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    formData.append("title", document.getElementById("title").value.trim());
+    formData.append("description", document.getElementById("description").value.trim());
+    const isPublic = document.getElementById("is_public").checked;
+    formData.append("is_public", isPublic);
+
+    if (!isPublic) {
+      formData.append("share_with", Array.from(selectedUserIds).join(","));
+    }
+
+    try {
+      await apiFetch("/files/upload", { method: "POST", body: formData });
+      showAlert("upload-alert", "File berhasil diunggah.", false);
+      e.target.reset();
+      selectedUserIds.clear();
+      updateSelectedCount();
+      renderUserChecklist(allUsers);
+      document.getElementById("share-section").classList.add("hidden");
+      loadMyFiles();
+    } catch (err) {
+      showAlert("upload-alert", err.message);
+    }
+  });
+
+  (async () => {
+    const user = await requireAuth();
+    if (!user) return;
+    loadUsers();
+    loadMyFiles();
+  })();
+</script>
+{% endblock %}

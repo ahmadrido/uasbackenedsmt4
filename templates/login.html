@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Login — SecureDrop{% endblock %}
+
+{% block content %}
+<div class="max-w-sm mx-auto mt-10">
+  <div class="bg-surface border border-border rounded-2xl p-8 shadow-xl">
+    <h1 class="text-xl font-semibold text-white mb-1">Masuk</h1>
+    <p class="text-sm text-gray-500 mb-6">Drop-off box tugas lab — aman dari PC bersama.</p>
+
+    <form id="login-form" class="space-y-4">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Username atau Email</label>
+        <input type="text" id="identifier" required
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Password</label>
+        <input type="password" id="password" required
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+      </div>
+      <button type="submit"
+        class="w-full bg-accent hover:bg-blue-600 transition text-white text-sm font-medium py-2.5 rounded-lg">
+        Login
+      </button>
+      <div id="alert-box" class="hidden"></div>
+    </form>
+
+    <p class="text-sm text-gray-500 mt-6 text-center">
+      Belum punya akun? <a href="/register" class="text-accent hover:underline">Daftar</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const identifier = document.getElementById("identifier").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+      await apiFetch("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username: identifier, email: identifier, password }),
+      });
+      window.location.href = "/dashboard";
+    } catch (err) {
+      showAlert("alert-box", err.message);
+    }
+  });
+</script>
+{% endblock %}
