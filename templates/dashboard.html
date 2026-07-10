@@ -2,71 +2,158 @@
 {% block title %}Dashboard — SecureDrop{% endblock %}
 
 {% block content %}
-<div class="grid lg:grid-cols-5 gap-6">
+<div class="flex items-center justify-between mb-4">
+  <h2 class="font-semibold text-white">File Saya</h2>
+  <div class="flex items-center gap-3">
+    <span id="file-count" class="text-xs text-gray-500"></span>
+    <button id="open-upload-btn"
+      class="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-accent hover:bg-blue-600 transition text-white font-medium">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+      </svg>
+      Upload File
+    </button>
+  </div>
+</div>
 
-  <!-- Upload Panel -->
-  <div class="lg:col-span-2">
-    <div class="bg-surface border border-border rounded-2xl p-6 sticky top-20">
-      <h2 class="font-semibold text-white mb-4">Upload File</h2>
-      <form id="upload-form" class="space-y-4">
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">File</label>
-          <input type="file" id="file-input" required
-            class="w-full text-sm text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-accent/20 file:text-accent file:text-xs" />
+<div id="my-files-list" class="space-y-3">
+  <div class="skeleton h-16 rounded-xl"></div>
+  <div class="skeleton h-16 rounded-xl"></div>
+</div>
+
+<!-- ================= UPLOAD MODAL ================= -->
+<div id="upload-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+  <div id="upload-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+  <div class="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-white">Upload File</h3>
+      <button id="upload-close-btn" class="p-1.5 rounded-md hover:bg-white/5 transition" aria-label="Tutup">
+        <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <form id="upload-form" class="space-y-4">
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">File</label>
+        <input type="file" id="file-input" required
+          class="w-full text-xs sm:text-sm text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-accent/20 file:text-accent file:text-xs" />
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Judul</label>
+        <input type="text" id="title" required
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+      </div>
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Deskripsi</label>
+        <textarea id="description" rows="2"
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"></textarea>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <input type="checkbox" id="is_public" class="rounded bg-base border-border" />
+        <label for="is_public" class="text-sm text-gray-400">Jadikan Publik (semua user bisa lihat)</label>
+      </div>
+
+      <div id="share-section" class="hidden">
+        <label class="block text-xs text-gray-400 mb-1">Bagikan ke user tertentu</label>
+        <input type="text" id="user-search" placeholder="Cari username atau nama..."
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-accent" />
+        <div id="user-checklist"
+          class="border border-border rounded-lg max-h-40 sm:max-h-44 overflow-y-auto divide-y divide-border"></div>
+        <div class="flex items-center justify-between mt-2 gap-2">
+          <p id="selected-count" class="text-[11px] text-gray-600">0 user dipilih</p>
+          <button type="button" id="clear-selection" class="text-[11px] text-accent hover:underline shrink-0">Bersihkan pilihan</button>
         </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">Judul</label>
-          <input type="text" id="title" required
-            class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1">Deskripsi</label>
-          <textarea id="description" rows="2"
-            class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"></textarea>
-        </div>
+      </div>
 
-        <div class="flex items-center gap-2">
-          <input type="checkbox" id="is_public" class="rounded bg-base border-border" />
-          <label for="is_public" class="text-sm text-gray-400">Jadikan Publik (semua user bisa lihat)</label>
-        </div>
+      <div id="upload-alert" class="hidden"></div>
 
-        <!-- Share to specific users: searchable checkbox list -->
-        <div id="share-section" class="hidden">
-          <label class="block text-xs text-gray-400 mb-1">Bagikan ke user tertentu</label>
-
-          <input type="text" id="user-search" placeholder="Cari username atau nama..."
-            class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-accent" />
-
-          <div id="user-checklist"
-            class="border border-border rounded-lg max-h-44 overflow-y-auto divide-y divide-border">
-            <!-- diisi via JS -->
-          </div>
-
-          <div class="flex items-center justify-between mt-2">
-            <p id="selected-count" class="text-[11px] text-gray-600">0 user dipilih</p>
-            <button type="button" id="clear-selection" class="text-[11px] text-accent hover:underline">Bersihkan pilihan</button>
-          </div>
-        </div>
-
+      <div class="flex gap-2 pt-2">
+        <button type="button" id="upload-cancel-btn"
+          class="flex-1 bg-white/5 hover:bg-white/10 transition text-gray-300 text-sm font-medium py-2.5 rounded-lg">
+          Batal
+        </button>
         <button type="submit"
-          class="w-full bg-accent hover:bg-blue-600 transition text-white text-sm font-medium py-2.5 rounded-lg">
+          class="flex-1 bg-accent hover:bg-blue-600 transition text-white text-sm font-medium py-2.5 rounded-lg">
           Upload
         </button>
-        <div id="upload-alert" class="hidden"></div>
-      </form>
-    </div>
+      </div>
+    </form>
   </div>
+</div>
 
-  <!-- My Files List -->
-  <div class="lg:col-span-3">
+<!-- ================= EDIT MODAL ================= -->
+<div id="edit-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+  <div id="edit-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+
+  <div class="relative bg-surface border border-border rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="font-semibold text-white">File Saya</h2>
-      <span id="file-count" class="text-xs text-gray-500"></span>
+      <h3 class="font-semibold text-white">Edit File</h3>
+      <button id="edit-close-btn" class="p-1.5 rounded-md hover:bg-white/5 transition" aria-label="Tutup">
+        <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
-    <div id="my-files-list" class="space-y-3">
-      <div class="skeleton h-16 rounded-xl"></div>
-      <div class="skeleton h-16 rounded-xl"></div>
-    </div>
+
+    <form id="edit-form" class="space-y-4">
+      <input type="hidden" id="edit-file-id" />
+
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Ganti File (opsional)</label>
+        <div class="flex items-center gap-3 mb-2">
+          <div id="edit-current-thumb" class="w-16 h-16 shrink-0"></div>
+          <p id="edit-current-file" class="text-[11px] text-gray-600"></p>
+        </div>
+        <input type="file" id="edit-file-input"
+          class="w-full text-xs sm:text-sm text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-accent/20 file:text-accent file:text-xs" />
+      </div>
+
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Judul</label>
+        <input type="text" id="edit-title" required
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
+      </div>
+
+      <div>
+        <label class="block text-xs text-gray-400 mb-1">Deskripsi</label>
+        <textarea id="edit-description" rows="2"
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"></textarea>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <input type="checkbox" id="edit-is_public" class="rounded bg-base border-border" />
+        <label for="edit-is_public" class="text-sm text-gray-400">Jadikan Publik (semua user bisa lihat)</label>
+      </div>
+
+      <div id="edit-share-section" class="hidden">
+        <label class="block text-xs text-gray-400 mb-1">Bagikan ke user tertentu</label>
+        <input type="text" id="edit-user-search" placeholder="Cari username atau nama..."
+          class="w-full bg-base border border-border rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-accent" />
+        <div id="edit-user-checklist"
+          class="border border-border rounded-lg max-h-40 sm:max-h-44 overflow-y-auto divide-y divide-border"></div>
+        <div class="flex items-center justify-between mt-2 gap-2">
+          <p id="edit-selected-count" class="text-[11px] text-gray-600">0 user dipilih</p>
+          <button type="button" id="edit-clear-selection" class="text-[11px] text-accent hover:underline shrink-0">Bersihkan pilihan</button>
+        </div>
+      </div>
+
+      <div id="edit-alert" class="hidden"></div>
+
+      <div class="flex gap-2 pt-2">
+        <button type="button" id="edit-cancel-btn"
+          class="flex-1 bg-white/5 hover:bg-white/10 transition text-gray-300 text-sm font-medium py-2.5 rounded-lg">
+          Batal
+        </button>
+        <button type="submit"
+          class="flex-1 bg-accent hover:bg-blue-600 transition text-white text-sm font-medium py-2.5 rounded-lg">
+          Simpan Perubahan
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 {% endblock %}
@@ -74,8 +161,10 @@
 {% block scripts %}
 <script>
   let allUsers = [];
-  let selectedUserIds = new Set();
+  let selectedUserIds = new Set();       // untuk form upload
+  let editSelectedUserIds = new Set();   // untuk form edit
 
+  // ---------- Load daftar user (dipakai upload & edit) ----------
   async function loadUsers() {
     try {
       const data = await apiFetch("/files/users");
@@ -88,42 +177,37 @@
     }
   }
 
-  function renderUserChecklist(users) {
-    const container = document.getElementById("user-checklist");
-
+  function buildChecklistHtml(users, selectedSet, checkboxClass) {
     if (!users.length) {
-      container.innerHTML = `<p class="text-xs text-gray-600 p-3">Tidak ada user ditemukan.</p>`;
-      return;
+      return `<p class="text-xs text-gray-600 p-3">Tidak ada user ditemukan.</p>`;
     }
-
-    container.innerHTML = users.map((u) => `
+    return users.map((u) => `
       <label class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/5 cursor-pointer transition">
-        <input type="checkbox" data-user-id="${u.id}" class="user-checkbox rounded bg-base border-border"
-          ${selectedUserIds.has(u.id) ? "checked" : ""} />
-        <span class="text-gray-300">${u.username}</span>
-        <span class="text-gray-600 text-xs">${u.full_name || ""}</span>
+        <input type="checkbox" data-user-id="${u.id}" class="${checkboxClass} rounded bg-base border-border shrink-0"
+          ${selectedSet.has(u.id) ? "checked" : ""} />
+        <span class="text-gray-300 truncate">${u.username}</span>
+        <span class="text-gray-600 text-xs truncate">${u.full_name || ""}</span>
       </label>
     `).join("");
+  }
 
+  // ---------- Checklist untuk form UPLOAD ----------
+  function renderUserChecklist(users) {
+    const container = document.getElementById("user-checklist");
+    container.innerHTML = buildChecklistHtml(users, selectedUserIds, "user-checkbox");
     container.querySelectorAll(".user-checkbox").forEach((cb) => {
       cb.addEventListener("change", (e) => {
         const id = e.target.dataset.userId;
-        if (e.target.checked) selectedUserIds.add(id);
-        else selectedUserIds.delete(id);
-        updateSelectedCount();
+        if (e.target.checked) selectedUserIds.add(id); else selectedUserIds.delete(id);
+        document.getElementById("selected-count").textContent = `${selectedUserIds.size} user dipilih`;
       });
     });
-  }
-
-  function updateSelectedCount() {
-    document.getElementById("selected-count").textContent = `${selectedUserIds.size} user dipilih`;
   }
 
   function filterUsers(query) {
     const q = query.trim().toLowerCase();
     return allUsers.filter((u) =>
-      u.username.toLowerCase().includes(q) ||
-      (u.full_name || "").toLowerCase().includes(q)
+      u.username.toLowerCase().includes(q) || (u.full_name || "").toLowerCase().includes(q)
     );
   }
 
@@ -133,7 +217,7 @@
 
   document.getElementById("clear-selection").addEventListener("click", () => {
     selectedUserIds.clear();
-    updateSelectedCount();
+    document.getElementById("selected-count").textContent = "0 user dipilih";
     renderUserChecklist(filterUsers(document.getElementById("user-search").value));
   });
 
@@ -141,21 +225,77 @@
     document.getElementById("share-section").classList.toggle("hidden", e.target.checked);
   });
 
+  // ---------- Checklist untuk form EDIT ----------
+  function renderEditUserChecklist(users) {
+    const container = document.getElementById("edit-user-checklist");
+    container.innerHTML = buildChecklistHtml(users, editSelectedUserIds, "edit-user-checkbox");
+    container.querySelectorAll(".edit-user-checkbox").forEach((cb) => {
+      cb.addEventListener("change", (e) => {
+        const id = e.target.dataset.userId;
+        if (e.target.checked) editSelectedUserIds.add(id); else editSelectedUserIds.delete(id);
+        document.getElementById("edit-selected-count").textContent = `${editSelectedUserIds.size} user dipilih`;
+      });
+    });
+  }
+
+  document.getElementById("edit-user-search").addEventListener("input", (e) => {
+    renderEditUserChecklist(filterUsers(e.target.value));
+  });
+
+  document.getElementById("edit-clear-selection").addEventListener("click", () => {
+    editSelectedUserIds.clear();
+    document.getElementById("edit-selected-count").textContent = "0 user dipilih";
+    renderEditUserChecklist(filterUsers(document.getElementById("edit-user-search").value));
+  });
+
+  document.getElementById("edit-is_public").addEventListener("change", (e) => {
+    document.getElementById("edit-share-section").classList.toggle("hidden", e.target.checked);
+  });
+
+  // ---------- Modal UPLOAD: open / close ----------
+  const uploadModal = document.getElementById("upload-modal");
+
+  function openUploadModal() {
+    uploadModal.classList.remove("hidden");
+  }
+
+  function closeUploadModal() {
+    uploadModal.classList.add("hidden");
+    document.getElementById("upload-form").reset();
+    document.getElementById("upload-alert").classList.add("hidden");
+    document.getElementById("share-section").classList.add("hidden");
+    selectedUserIds.clear();
+    document.getElementById("selected-count").textContent = "0 user dipilih";
+    document.getElementById("user-search").value = "";
+    renderUserChecklist(allUsers);
+  }
+
+  document.getElementById("open-upload-btn").addEventListener("click", openUploadModal);
+  document.getElementById("upload-close-btn").addEventListener("click", closeUploadModal);
+  document.getElementById("upload-cancel-btn").addEventListener("click", closeUploadModal);
+  document.getElementById("upload-backdrop").addEventListener("click", closeUploadModal);
+
+  // ---------- File row + tombol Edit (dengan thumbnail & deskripsi) ----------
   function fileRow(f) {
     return `
-      <div class="bg-surface border border-border rounded-xl p-4 flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2">
-            <p class="text-sm font-medium text-white truncate">${f.title}</p>
-            <span class="text-[10px] px-2 py-0.5 rounded-full ${f.is_public ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}">
-              ${f.is_public ? "Public" : "Private"}
-            </span>
+      <div class="bg-surface border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div class="flex items-start gap-3 min-w-0">
+          ${fileThumbHtml(f, "w-12 h-12")}
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="text-sm font-medium text-white truncate">${f.title}</p>
+              <span class="text-[10px] px-2 py-0.5 rounded-full shrink-0 ${f.is_public ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}">
+                ${f.is_public ? "Public" : "Private"}
+              </span>
+            </div>
+            <p class="text-xs text-gray-500 truncate">${f.original_filename} · ${formatBytes(f.file_size)} · ${formatDate(f.created_at)}</p>
+            ${f.description ? `<p class="text-xs text-gray-400 mt-1 line-clamp-2">${f.description}</p>` : ""}
           </div>
-          <p class="text-xs text-gray-500 truncate">${f.original_filename} · ${formatBytes(f.file_size)} · ${formatDate(f.created_at)}</p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <a href="/api/files/${f.id}/download" class="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition">Download</a>
-          <button data-id="${f.id}" class="delete-btn text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition">Hapus</button>
+          <a href="/api/files/${f.id}/download" class="flex-1 sm:flex-none text-center text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition">Download</a>
+          <button data-id="${f.id}" class="edit-btn flex-1 sm:flex-none text-xs px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition">Edit</button>
+          <button data-id="${f.id}" class="delete-btn flex-1 sm:flex-none text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition">Hapus</button>
         </div>
       </div>`;
   }
@@ -180,11 +320,84 @@
           }
         });
       });
+
+      container.querySelectorAll(".edit-btn").forEach((btn) => {
+        btn.addEventListener("click", () => openEditModal(btn.dataset.id));
+      });
     } catch (err) {
       container.innerHTML = `<p class="text-sm text-red-400">${err.message}</p>`;
     }
   }
 
+  // ---------- Modal EDIT: open / close / submit ----------
+  const editModal = document.getElementById("edit-modal");
+
+  function closeEditModal() {
+    editModal.classList.add("hidden");
+    document.getElementById("edit-form").reset();
+    document.getElementById("edit-alert").classList.add("hidden");
+    editSelectedUserIds.clear();
+  }
+
+  document.getElementById("edit-close-btn").addEventListener("click", closeEditModal);
+  document.getElementById("edit-cancel-btn").addEventListener("click", closeEditModal);
+  document.getElementById("edit-backdrop").addEventListener("click", closeEditModal);
+
+  async function openEditModal(fileId) {
+    try {
+      const data = await apiFetch(`/files/${fileId}`);
+      const f = data.file;
+
+      document.getElementById("edit-file-id").value = f.id;
+      document.getElementById("edit-title").value = f.title;
+      document.getElementById("edit-description").value = f.description || "";
+      document.getElementById("edit-is_public").checked = f.is_public;
+      document.getElementById("edit-current-file").textContent = `File saat ini: ${f.original_filename}`;
+      document.getElementById("edit-current-thumb").innerHTML = fileThumbHtml(f, "w-16 h-16");
+      document.getElementById("edit-file-input").value = "";
+
+      editSelectedUserIds = new Set(f.shared_with_ids || []);
+      document.getElementById("edit-selected-count").textContent = `${editSelectedUserIds.size} user dipilih`;
+      document.getElementById("edit-share-section").classList.toggle("hidden", f.is_public);
+      renderEditUserChecklist(allUsers);
+      document.getElementById("edit-user-search").value = "";
+
+      editModal.classList.remove("hidden");
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  document.getElementById("edit-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fileId = document.getElementById("edit-file-id").value;
+
+    const formData = new FormData();
+    formData.append("title", document.getElementById("edit-title").value.trim());
+    formData.append("description", document.getElementById("edit-description").value.trim());
+    const isPublic = document.getElementById("edit-is_public").checked;
+    formData.append("is_public", isPublic);
+
+    const newFile = document.getElementById("edit-file-input").files[0];
+    if (newFile) formData.append("file", newFile);
+
+    if (!isPublic) {
+      formData.append("share_with", Array.from(editSelectedUserIds).join(","));
+    }
+
+    try {
+      await apiFetch(`/files/${fileId}`, { method: "PUT", body: formData });
+      showAlert("edit-alert", "Perubahan berhasil disimpan.", false);
+      setTimeout(() => {
+        closeEditModal();
+        loadMyFiles();
+      }, 700);
+    } catch (err) {
+      showAlert("edit-alert", err.message);
+    }
+  });
+
+  // ---------- Form UPLOAD ----------
   document.getElementById("upload-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fileInput = document.getElementById("file-input");
@@ -204,12 +417,10 @@
     try {
       await apiFetch("/files/upload", { method: "POST", body: formData });
       showAlert("upload-alert", "File berhasil diunggah.", false);
-      e.target.reset();
-      selectedUserIds.clear();
-      updateSelectedCount();
-      renderUserChecklist(allUsers);
-      document.getElementById("share-section").classList.add("hidden");
-      loadMyFiles();
+      setTimeout(() => {
+        closeUploadModal();
+        loadMyFiles();
+      }, 700);
     } catch (err) {
       showAlert("upload-alert", err.message);
     }

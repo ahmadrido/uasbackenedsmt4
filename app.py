@@ -6,7 +6,12 @@ from flask_cors import CORS
 from config import DevelopmentConfig
 from models import db
 from routes.view_routes import view_bp
+from flask_mail import Mail
+from dotenv import load_dotenv
+from flask import render_template, request, jsonify
 
+load_dotenv()
+mail = Mail()
 
 def create_app(config_class=DevelopmentConfig):
     app = Flask(__name__)
@@ -19,6 +24,7 @@ def create_app(config_class=DevelopmentConfig):
     db.init_app(app)
 
     jwt = JWTManager(app)
+    mail.init_app(app)
 
     # CORS: support_credentials wajib True agar cookie ikut terkirim dari frontend
     CORS(
@@ -56,6 +62,13 @@ def create_app(config_class=DevelopmentConfig):
     @app.errorhandler(404)
     def not_found(e):
         return jsonify({"error": "Resource not found"}), 404
+
+    @app.errorhandler(404)
+    def not_found(e):
+        if request.path.startswith('/api'):
+            return jsonify({"error": "Resource not found"}), 404
+            
+        return render_template('404.html'), 404
 
     @app.errorhandler(413)
     def too_large(e):

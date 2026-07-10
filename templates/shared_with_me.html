@@ -2,8 +2,10 @@
 {% block title %}Shared with me — SecureDrop{% endblock %}
 
 {% block content %}
-<h2 class="font-semibold text-white mb-4">Dibagikan untuk Saya</h2>
-<p class="text-sm text-gray-500 mb-6">File privat yang dikirim langsung oleh user lain kepada Anda.</p>
+<h2 class="font-semibold text-white mb-1">Dibagikan untuk Saya</h2>
+<p class="text-sm text-gray-500 mb-4">File privat yang dikirim langsung oleh user lain kepada Anda.</p>
+
+<div id="filter-bar-container"></div>
 
 <div id="shared-list" class="space-y-3">
   <div class="skeleton h-16 rounded-xl"></div>
@@ -13,15 +15,30 @@
 
 {% block scripts %}
 <script>
+  let sharedFilesData = [];
+
+  document.getElementById("filter-bar-container").innerHTML =
+    buildFilterBarHtml("shared-search", "shared-filter", {
+      searchPlaceholder: "Cari judul, deskripsi, atau nama file...",
+      filterAllLabel: "Semua pengirim",
+    });
+
+  document.getElementById("shared-search").addEventListener("input", renderFilteredSharedFiles);
+  document.getElementById("shared-filter").addEventListener("change", renderFilteredSharedFiles);
+
   function sharedRow(s) {
     const f = s.file;
     return `
       <div class="bg-surface border border-border rounded-xl p-4 flex items-center justify-between gap-4">
-        <div class="min-w-0">
-          <p class="text-sm font-medium text-white truncate">${f.title}</p>
-          <p class="text-xs text-gray-500 truncate">
-            dari @${s.shared_by?.username || "-"} · ${formatDate(s.shared_at)}
-          </p>
+        <div class="flex items-center gap-3 min-w-0">
+          ${fileThumbHtml(f, "w-12 h-12")}
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-white truncate">${f.title}</p>
+            ${f.description ? `<p class="text-xs text-gray-400 truncate">${f.description}</p>` : ""}
+            <p class="text-xs text-gray-500 truncate">
+              dari @${s.shared_by?.username || "-"} · ${formatDate(s.shared_at)}
+            </p>
+          </div>
         </div>
         <a href="/api/files/${f.id}/download" class="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition">
           Unduh
@@ -29,13 +46,32 @@
       </div>`;
   }
 
+  function renderFilteredSharedFiles() {
+    const query = document.getElementById("shared-search").value;
+    const filterUsername = document.getElementById("shared-filter").value;
+
+    const filtered = sharedFilesData.filter((s) => {
+      const matchesText = textMatches(query, s.file?.title, s.file?.description, s.file?.original_filename);
+      const matchesUser = !filterUsername || s.shared_by?.username === filterUsername;
+      return matchesText && matchesUser;
+    });
+
+    const container = document.getElementById("shared-list");
+    container.innerHTML = filtered.length
+      ? filtered.map(sharedRow).join("")
+      : `<p class="text-sm text-gray-600">Tidak ada file yang cocok.</p>`;
+  }
+
   async function loadSharedFiles() {
     const container = document.getElementById("shared-list");
     try {
       const data = await apiFetch("/files/shared-with-me");
-      container.innerHTML = data.shared_files.length
-        ? data.shared_files.map(sharedRow).join("")
-        : `<p class="text-sm text-gray-600">Belum ada file yang dibagikan ke Anda.</p>`;
+      sharedFilesData = data.shared_files;
+
+      const usernames = sharedFilesData.map((s) => s.shared_by?.username);
+      populateUsernameFilter("shared-filter", usernames, "Semua pengirim");
+
+      renderFilteredSharedFiles();
     } catch (err) {
       container.innerHTML = `<p class="text-sm text-red-400">${err.message}</p>`;
     }

@@ -23,7 +23,7 @@
 </head>
 <body class="bg-base text-gray-200 min-h-screen flex flex-col">
 
-{% if request.path not in ['/login', '/register'] %}
+{% if request.path not in ['/login', '/register', '/forgot-password', '/reset-password'] %}
   <nav class="border-b border-border bg-surface/60 backdrop-blur sticky top-0 z-50">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
       <a href="/dashboard" class="flex items-center gap-2 font-semibold text-white">

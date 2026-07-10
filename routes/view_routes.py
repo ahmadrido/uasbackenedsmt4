@@ -14,6 +14,16 @@ def register_page():
     return render_template("register.html")
 
 
+@view_bp.route("/forgot-password")
+def forgot_password_page():
+    return render_template("forgot_password.html")
+
+
+@view_bp.route("/reset-password")
+def reset_password_page():
+    return render_template("reset_password.html")
+
+
 @view_bp.route("/dashboard")
 def dashboard_page():
     return render_template("dashboard.html")

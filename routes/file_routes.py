@@ -124,7 +124,17 @@ def get_shared_with_me():
 def get_my_files():
     user_id = get_jwt_identity()
     files = FileItem.query.filter_by(owner_id=user_id).order_by(FileItem.created_at.desc()).all()
-    return jsonify({"files": [f.to_dict(include_owner=False) for f in files]}), 200
+
+    result = []
+    for f in files:
+        data = f.to_dict(include_owner=False)
+        data["shared_with"] = [
+            {"id": s.shared_with.id, "username": s.shared_with.username}
+            for s in f.shares if s.shared_with
+        ]
+        result.append(data)
+
+    return jsonify({"files": result}), 200
 
 
 @file_bp.route("/<file_id>/download", methods=["GET"])
@@ -186,3 +196,157 @@ def list_users_for_sharing():
     user_id = get_jwt_identity()
     users = User.query.filter(User.id != user_id).order_by(User.username.asc()).all()
     return jsonify({"users": [u.to_dict() for u in users]}), 200
+
+@file_bp.route("/<file_id>", methods=["GET"])
+@jwt_required()
+def get_file_detail(file_id):
+    """Detail satu file. Jika diakses oleh owner, sertakan daftar user yang di-share."""
+    user_id = get_jwt_identity()
+
+    file_item = FileItem.query.get(file_id)
+    if not file_item:
+        return jsonify({"error": "File tidak ditemukan"}), 404
+
+    is_owner = file_item.owner_id == user_id
+    is_shared_with_user = FileShare.query.filter_by(
+        file_id=file_item.id, shared_with_id=user_id
+    ).first() is not None
+
+    if not (file_item.is_public or is_owner or is_shared_with_user):
+        return jsonify({"error": "Anda tidak memiliki akses ke file ini"}), 403
+
+    data = file_item.to_dict()
+    if is_owner:
+        data["shared_with_ids"] = [s.shared_with_id for s in file_item.shares]
+
+    return jsonify({"file": data}), 200
+
+
+@file_bp.route("/<file_id>", methods=["PUT", "PATCH"])
+@jwt_required()
+def update_file(file_id):
+    """
+    Edit metadata file: title, description, is_public, share_with, dan opsional ganti file fisik.
+    Dikirim sebagai multipart/form-data (sama seperti upload) agar bisa menyertakan file baru.
+    """
+    user_id = get_jwt_identity()
+
+    file_item = FileItem.query.get(file_id)
+    if not file_item:
+        return jsonify({"error": "File tidak ditemukan"}), 404
+
+    if file_item.owner_id != user_id:
+        return jsonify({"error": "Hanya pemilik yang bisa mengedit file ini"}), 403
+
+    form = request.form
+    new_file = request.files.get("file")  # opsional, hanya diisi jika user ganti file
+
+    title = form.get("title")
+    description = form.get("description")
+    is_public_raw = form.get("is_public")
+    share_with_provided = "share_with" in form
+    share_with_raw = form.get("share_with", "")
+
+    # --- Validasi & update field teks ---
+    if title is not None:
+        title = title.strip()
+        if not title:
+            return jsonify({"error": "Judul tidak boleh kosong"}), 400
+        file_item.title = title
+
+    if description is not None:
+        file_item.description = description.strip()
+
+    if is_public_raw is not None:
+        file_item.is_public = str(is_public_raw).lower() == "true"
+
+    # --- Ganti file fisik jika ada upload baru ---
+    old_path_to_delete = None
+    if new_file and new_file.filename:
+        if not _allowed_file(new_file.filename):
+            return jsonify({"error": "Tipe file tidak diizinkan"}), 400
+
+        old_path_to_delete = os.path.join(
+            current_app.config["UPLOAD_FOLDER"], file_item.stored_filename
+        )
+
+        original_filename = secure_filename(new_file.filename)
+        ext = original_filename.rsplit(".", 1)[1].lower()
+        new_stored_filename = f"{uuid.uuid4().hex}.{ext}"
+        new_path = os.path.join(current_app.config["UPLOAD_FOLDER"], new_stored_filename)
+
+        try:
+            new_file.save(new_path)
+        except Exception:
+            return jsonify({"error": "Gagal menyimpan file baru"}), 500
+
+        file_item.original_filename = original_filename
+        file_item.stored_filename = new_stored_filename
+        file_item.file_size = os.path.getsize(new_path)
+        file_item.mime_type = new_file.mimetype
+
+    # --- Update sharing (M2M) ---
+    try:
+        if file_item.is_public:
+            # Jadi publik: hapus semua share spesifik yang ada
+            FileShare.query.filter_by(file_id=file_item.id).delete()
+
+        elif share_with_provided:
+            # Private & daftar share dikirim ulang: sinkronkan (tambah baru, hapus yang dihilangkan)
+            new_ids = {uid.strip() for uid in share_with_raw.split(",") if uid.strip()}
+            new_ids.discard(user_id)
+
+            valid_users = User.query.filter(User.id.in_(new_ids)).all() if new_ids else []
+            valid_ids = {u.id for u in valid_users}
+
+            existing_shares = {s.shared_with_id: s for s in file_item.shares}
+
+            for uid, share in existing_shares.items():
+                if uid not in valid_ids:
+                    db.session.delete(share)
+
+            for uid in valid_ids:
+                if uid not in existing_shares:
+                    db.session.add(FileShare(
+                        file_id=file_item.id,
+                        shared_with_id=uid,
+                        shared_by_id=user_id,
+                    ))
+
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Gagal memperbarui data file"}), 500
+
+    if old_path_to_delete and os.path.exists(old_path_to_delete):
+        os.remove(old_path_to_delete)
+
+    return jsonify({"message": "File berhasil diperbarui", "file": file_item.to_dict()}), 200
+
+@file_bp.route("/<file_id>/preview", methods=["GET"])
+@jwt_required()
+def preview_file(file_id):
+    """Serve file inline (bukan attachment) — khusus untuk thumbnail gambar di UI."""
+    user_id = get_jwt_identity()
+
+    file_item = FileItem.query.get(file_id)
+    if not file_item:
+        return jsonify({"error": "File tidak ditemukan"}), 404
+
+    is_owner = file_item.owner_id == user_id
+    is_shared_with_user = FileShare.query.filter_by(
+        file_id=file_item.id, shared_with_id=user_id
+    ).first() is not None
+
+    if not (file_item.is_public or is_owner or is_shared_with_user):
+        return jsonify({"error": "Anda tidak memiliki akses ke file ini"}), 403
+
+    if not file_item.mime_type or not file_item.mime_type.startswith("image/"):
+        return jsonify({"error": "Preview hanya tersedia untuk file gambar"}), 415
+
+    return send_from_directory(
+        current_app.config["UPLOAD_FOLDER"],
+        file_item.stored_filename,
+        as_attachment=False,
+        mimetype=file_item.mime_type
+    )

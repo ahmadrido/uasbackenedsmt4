@@ -35,6 +35,22 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=8)
     JWT_COOKIE_SAMESITE = "Lax"
 
+    # --- Email (untuk fitur reset password) ---
+    MAIL_FROM_NAME = os.environ.get("MAIL_FROM_NAME", "Mail")
+    MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_PORT = int(os.environ.get("MAIL_PORT", 465))
+    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "False") == "True"
+    MAIL_USE_SSL = os.environ.get("MAIL_USE_SSL", "False") == "True"
+    MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
+    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", MAIL_USERNAME)
+    MAIL_DEFAULT_SENDER = os.environ.get("MAIL_DEFAULT_SENDER", MAIL_USERNAME)
+
+    # --- Password Reset ---
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5000")
+    PASSWORD_RESET_MAX_AGE = 3600  # 1 jam (dalam detik)
+    PASSWORD_RESET_SALT = "password-reset-salt"
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
@@ -43,3 +59,4 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
     JWT_COOKIE_SECURE = True
+
